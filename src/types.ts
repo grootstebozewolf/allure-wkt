@@ -27,6 +27,7 @@ export interface AllureResult {
 export interface WktMatch {
   attachment: AllureAttachment;
   parent: AllureResult | AllureStep; // where to append the new svg attachment
+  root: AllureResult; // top-level result to serialise back to disk
   filePath: string; // full path to the result json
   attachmentDir: string; // dir containing the attachment files
 }

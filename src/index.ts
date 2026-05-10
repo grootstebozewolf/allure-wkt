@@ -53,6 +53,7 @@ async function findWktMatches(resultsDir: string): Promise<WktMatch[]> {
           matches.push({
             attachment: att,
             parent: result,
+            root: result,
             filePath,
             attachmentDir: resultsDir,
           });
@@ -69,6 +70,7 @@ async function findWktMatches(resultsDir: string): Promise<WktMatch[]> {
               matches.push({
                 attachment: att,
                 parent: step,
+                root: result,
                 filePath,
                 attachmentDir: resultsDir,
               });
@@ -86,42 +88,36 @@ async function processWktAttachment(match: WktMatch): Promise<void> {
   const { attachment, attachmentDir, filePath } = match;
 
   // Resolve the actual attachment file (usually next to the json or in attachments/ subdir)
-  let wktContent: string;
   const candidatePaths = [
     join(attachmentDir, attachment.source),
     join(attachmentDir, 'attachments', attachment.source),
   ];
 
-  let found = false;
+  let wktContent: string | undefined;
   for (const p of candidatePaths) {
-    try {
-      const s = await stat(p);
-      if (s.isFile()) {
-        wktContent = await readFile(p, 'utf8');
-        found = true;
-        break;
-      }
-    } catch {}
+    const s = await stat(p).catch(() => null);
+    if (s?.isFile()) {
+      wktContent = await readFile(p, 'utf8');
+      break;
+    }
   }
 
-  if (!found) {
+  if (wktContent === undefined) {
     console.warn(`[allure-wkt] Could not find attachment file for ${attachment.source} in ${attachmentDir}`);
     return;
   }
 
-  // TODO: real implementation
-  // const geom = parseWkt(wktContent.trim());
-  // const svg = renderToSvg(geom, { padding: 20, strokeWidth: 2, ... });
-
-  // For now: placeholder SVG so the pipeline works end-to-end
+  // === SEAM: render ===
+  // Hardcoded placeholder SVG with one <circle> so the test pins the
+  // shape of the contract. The real renderer plugs in here:
+  //   const geom = parseWkt(wktContent.trim());
+  //   const svg = renderToSvg(geom, { ... });
   const placeholderSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
   <rect width="400" height="300" fill="#f8fafc" stroke="#e2e8f0"/>
-  <text x="200" y="150" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="16">
-    WKT Visualization Placeholder
-  </text>
-  <text x="200" y="175" text-anchor="middle" fill="#94a3b8" font-family="system-ui" font-size="12">
-    (real parser + renderer coming in next iteration)
+  <circle cx="200" cy="150" r="6" fill="#0ea5e9" stroke="#0369a1" stroke-width="1"/>
+  <text x="200" y="180" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="12">
+    WKT Visualization (placeholder renderer)
   </text>
 </svg>`;
 
@@ -131,27 +127,20 @@ async function processWktAttachment(match: WktMatch): Promise<void> {
 
   await writeFile(svgPath, placeholderSvg, 'utf8');
 
-  // Patch the JSON: append new attachment entry to the parent
-  const resultContent = await readFile(filePath, 'utf8');
-  const result: AllureResult = JSON.parse(resultContent);
-
+  // === SEAM: patch ===
+  // Mutate the in-memory parent (which is a live ref into match.root) and
+  // serialise the root once. No re-read -- the previous identity-check
+  // approach failed because re-parsing made `match.parent === result`
+  // never true. Mutating in place avoids the round-trip entirely.
   const newAttachment: AllureAttachment = {
     name: 'WKT Visualization',
     source: svgSource,
     type: 'image/svg+xml',
   };
+  match.parent.attachments = match.parent.attachments || [];
+  match.parent.attachments.push(newAttachment);
 
-  // Find the correct parent array and append
-  if (match.parent === result) {
-    result.attachments = result.attachments || [];
-    result.attachments.push(newAttachment);
-  } else {
-    // It's a step - we need to find it again (simple for v1)
-    // In real impl we'd keep references or re-walk
-    console.warn('[allure-wkt] Step-level attachment patching not fully implemented in skeleton');
-  }
-
-  await writeFile(filePath, JSON.stringify(result, null, 2), 'utf8');
+  await writeFile(filePath, JSON.stringify(match.root, null, 2), 'utf8');
 
   console.log(`[allure-wkt] Created ${svgSource} for ${attachment.source}`);
 }

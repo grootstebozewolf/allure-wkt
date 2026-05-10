@@ -128,14 +128,33 @@ function renderLineString(coords: readonly Coord[]): string {
   return buildSvg(calculateBoundingBox(coords), inner);
 }
 
-function renderTriangle(coords: readonly Coord[]): string {
-  // SVG <polygon> auto-closes; emit only the unique 3 corners.
-  const open = coords.slice(0, -1);
-  const inner =
+/** One {@code <polygon>} element for a closed-ring coord list. SVG
+ *  {@code <polygon>} auto-closes, so the closing-repeat coord is dropped. */
+function polygonElement(closedRing: readonly Coord[]): string {
+  const open = closedRing.slice(0, -1);
+  return (
     `<polygon points="${pointsAttr(open)}" `
     + `fill="${POLYGON_FILL}" stroke="${POLYGON_STROKE}" `
-    + `stroke-width="${POLYGON_STROKE_WIDTH}" stroke-linejoin="round"/>`;
-  return buildSvg(calculateBoundingBox(coords), inner);
+    + `stroke-width="${POLYGON_STROKE_WIDTH}" stroke-linejoin="round"/>`
+  );
+}
+
+function renderTriangle(coords: readonly Coord[]): string {
+  return buildSvg(calculateBoundingBox(coords), polygonElement(coords));
+}
+
+function renderTin(triangles: readonly (readonly Coord[])[]): string {
+  // Single bbox over every vertex of every triangle so the viewBox
+  // brackets the full surface; one <polygon> per triangle inside the
+  // shared Y-flip group.
+  const allCoords: Coord[] = [];
+  for (const tri of triangles) {
+    for (const coord of tri) {
+      allCoords.push(coord);
+    }
+  }
+  const inner = triangles.map(polygonElement).join('\n    ');
+  return buildSvg(calculateBoundingBox(allCoords), inner);
 }
 
 /**
@@ -151,6 +170,8 @@ export function renderToSvg(geom: Geometry): string {
       return renderLineString(geom.coordinates);
     case 'Triangle':
       return renderTriangle(geom.coordinates);
+    case 'Tin':
+      return renderTin(geom.triangles);
     default: {
       // Exhaustiveness guard. As the Geometry union grows, this becomes
       // a TS error if a new case isn't handled here.

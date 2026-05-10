@@ -39,5 +39,16 @@ export interface Triangle {
   coordinates: readonly Coord[];
 }
 
+/**
+ * A Triangulated Irregular Network -- a flat surface tiled by triangles
+ * sharing edges/vertices. Each triangle is the same 4-coord closed
+ * ring shape as {@link Triangle}; the surface is the visual union of
+ * all of them. WKT layout: {@code TIN (((p,p,p,p)), ((p,p,p,p)), ...)}.
+ */
+export interface Tin {
+  type: 'Tin';
+  triangles: readonly (readonly Coord[])[];
+}
+
 /** Discriminated union of every geometry kind the parser can produce. */
-export type Geometry = Point | LineString | Triangle;
+export type Geometry = Point | LineString | Triangle | Tin;

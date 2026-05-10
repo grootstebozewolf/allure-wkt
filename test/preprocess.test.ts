@@ -139,4 +139,25 @@ describe('Feature: WKT attachments become SVG attachments in Allure results', ()
       );
     });
   });
+
+  describe('Scenario: a TIN attachment renders one <polygon> per triangle', () => {
+    let env: PreprocessedDir;
+
+    before(async () => {
+      env = await preprocessOneWkt(
+        'TIN (((0 0, 10 0, 5 10, 0 0)), ((10 0, 10 -5, 5 -5, 10 0)))',
+      );
+    });
+    after(async () => {
+      await rm(env.dir, { recursive: true, force: true });
+    });
+
+    it('Then the SVG contains exactly two <polygon> elements', async () => {
+      const ref = await readSvgAttachmentRef(env.resultJsonPath);
+      assert.ok(ref, 'precondition: an svg attachment must exist');
+      const svg = await readFile(join(env.dir, ref.source), 'utf8');
+      const polygons = svg.match(/<polygon\b/g) ?? [];
+      assert.equal(polygons.length, 2);
+    });
+  });
 });

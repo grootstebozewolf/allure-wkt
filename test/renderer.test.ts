@@ -139,6 +139,41 @@ describe('renderToSvg: TRIANGLE', () => {
   });
 });
 
+describe('renderToSvg: TIN', () => {
+  it('emits one <polygon> per triangle', () => {
+    const svg = renderToSvg({
+      type: 'Tin',
+      triangles: [
+        [[0, 0], [1, 0], [0, 1], [0, 0]],
+        [[1, 0], [1, 1], [0, 1], [1, 0]],
+      ],
+    });
+    const polygons = svg.match(/<polygon\b/g) ?? [];
+    assert.equal(polygons.length, 2);
+  });
+
+  it('drops the closing-repeat coord on each triangle', () => {
+    const svg = renderToSvg({
+      type: 'Tin',
+      triangles: [[[0, 0], [10, 0], [5, 10], [0, 0]]],
+    });
+    assert.match(svg, /<polygon\b[^>]*\bpoints="0,0 10,0 5,10"/);
+  });
+
+  it('produces a viewBox that brackets every vertex of every triangle', () => {
+    const svg = renderToSvg({
+      type: 'Tin',
+      triangles: [
+        [[0, 0], [10, 0], [5, 10], [0, 0]],
+        [[10, 0], [10, -5], [5, -5], [10, 0]],
+      ],
+    });
+    const [vx, vy, w, h] = viewBoxOf(svg);
+    assert.ok(vx <= 0 && vx + w >= 10, 'x extent must cover [0, 10]');
+    assert.ok(vy <= -5 && vy + h >= 10, 'y extent must cover [-5, 10]');
+  });
+});
+
 describe('calculateBoundingBox', () => {
   it('returns degenerate bbox for a single point', () => {
     const bbox = calculateBoundingBox([[10, 20]]);

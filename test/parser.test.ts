@@ -92,6 +92,28 @@ describe('parseWkt: TRIANGLE happy paths', () => {
   });
 });
 
+describe('parseWkt: TIN happy paths', () => {
+  it('parses a single-triangle TIN', () => {
+    assert.deepEqual(parseWkt('TIN (((0 0, 1 0, 0 1, 0 0)))'), {
+      type: 'Tin',
+      triangles: [[[0, 0], [1, 0], [0, 1], [0, 0]]],
+    });
+  });
+
+  it('parses a multi-triangle TIN', () => {
+    assert.deepEqual(
+      parseWkt('TIN (((0 0, 1 0, 0 1, 0 0)), ((1 0, 1 1, 0 1, 1 0)))'),
+      {
+        type: 'Tin',
+        triangles: [
+          [[0, 0], [1, 0], [0, 1], [0, 0]],
+          [[1, 0], [1, 1], [0, 1], [1, 0]],
+        ],
+      },
+    );
+  });
+});
+
 describe('parseWkt: error paths', () => {
   it('throws on unsupported geometry types', () => {
     assert.throws(
@@ -125,7 +147,7 @@ describe('parseWkt: error paths', () => {
   it('throws on a TRIANGLE with the wrong coord count', () => {
     assert.throws(
       () => parseWkt('TRIANGLE ((0 0, 1 0, 0 1))'),
-      /TRIANGLE must have exactly 4 coordinates/,
+      /TRIANGLE body must have exactly 4 coordinates/,
     );
   });
 
@@ -133,6 +155,13 @@ describe('parseWkt: error paths', () => {
     assert.throws(
       () => parseWkt('TRIANGLE ((0 0, 1 0, 0 1, 9 9))'),
       /first and last coordinates must be equal/,
+    );
+  });
+
+  it('throws on a TIN whose triangle body is malformed', () => {
+    assert.throws(
+      () => parseWkt('TIN (((0 0, 1 0, 0 1)))'),
+      /TRIANGLE body must have exactly 4 coordinates/,
     );
   });
 });

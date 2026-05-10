@@ -46,8 +46,9 @@ In CI (example for GitHub Actions / Jenkins / GitLab):
 - POINT
 - LINESTRING (≥ 2 points)
 - TRIANGLE (3 corners + closing repeat, per OGC)
+- TIN (≥ 1 triangle)
 
-LINESTRING / POLYGON-with-holes / MULTI* / GEOMETRYCOLLECTION ship additively as the parser/renderer grow. See `CLOTHOID_PROPOSAL.md` for the planned curve support roadmap (CIRCULARSTRING, COMPOUNDCURVE, CLOTHOID).
+POLYGON-with-holes / MULTI* / GEOMETRYCOLLECTION ship additively as the parser/renderer grow. See `CLOTHOID_PROPOSAL.md` for the planned curve support roadmap (CIRCULARSTRING, COMPOUNDCURVE, CLOTHOID).
 
 ## How it works (architecture)
 

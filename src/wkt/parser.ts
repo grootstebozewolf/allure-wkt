@@ -9,7 +9,14 @@
  * v1 supports POINT (x y) only. Additional types layer in additively
  * via new cases in {@link parseWkt} and new helpers below.
  */
-import type { Coord, Geometry, LineString, Point, Triangle } from './types.js';
+import type {
+  Coord,
+  Geometry,
+  LineString,
+  Point,
+  Tin,
+  Triangle,
+} from './types.js';
 
 /** Validates a token IS a numeric literal (anchored). */
 const NUMBER_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
@@ -135,24 +142,47 @@ function parseLineString(stream: TokenStream): LineString {
   return { type: 'LineString', coordinates: coords };
 }
 
-function parseTriangle(stream: TokenStream): Triangle {
-  // OGC TRIANGLE inherits POLYGON's outer-paren shape:
-  //   TRIANGLE ((p1, p2, p3, p1))
+/**
+ * Read one triangle body -- the {@code ((p1, p2, p3, p1))} block --
+ * and return its validated coord list. Used by both {@link parseTriangle}
+ * (single body) and {@link parseTin} (comma-separated bodies).
+ */
+function parseTriangleBody(stream: TokenStream): Coord[] {
   stream.expect('(');
   const coords = parseCoordList(stream);
   stream.expect(')');
   if (coords.length !== 4) {
     throw new SyntaxError(
-      `TRIANGLE must have exactly 4 coordinates (3 corners + closing repeat), got ${coords.length}`,
+      `TRIANGLE body must have exactly 4 coordinates (3 corners + closing repeat), got ${coords.length}`,
     );
   }
   const [first, , , last] = coords;
   if (first[0] !== last[0] || first[1] !== last[1]) {
     throw new SyntaxError(
-      'TRIANGLE first and last coordinates must be equal (closing repeat)',
+      'TRIANGLE body: first and last coordinates must be equal (closing repeat)',
     );
   }
-  return { type: 'Triangle', coordinates: coords };
+  return coords;
+}
+
+function parseTriangle(stream: TokenStream): Triangle {
+  // OGC TRIANGLE: TRIANGLE ((p1, p2, p3, p1))
+  return { type: 'Triangle', coordinates: parseTriangleBody(stream) };
+}
+
+function parseTin(stream: TokenStream): Tin {
+  // OGC TIN: TIN (((p,p,p,p)), ((p,p,p,p)), ...)
+  stream.expect('(');
+  const triangles: Coord[][] = [parseTriangleBody(stream)];
+  while (stream.peek() === ',') {
+    stream.next();
+    triangles.push(parseTriangleBody(stream));
+  }
+  stream.expect(')');
+  if (triangles.length === 0) {
+    throw new SyntaxError('TIN must contain at least one triangle');
+  }
+  return { type: 'Tin', triangles };
 }
 
 /**
@@ -175,6 +205,9 @@ export function parseWkt(input: string): Geometry {
       break;
     case 'TRIANGLE':
       geometry = parseTriangle(stream);
+      break;
+    case 'TIN':
+      geometry = parseTin(stream);
       break;
     default:
       throw new SyntaxError(`Unsupported WKT geometry: '${typeName}'`);

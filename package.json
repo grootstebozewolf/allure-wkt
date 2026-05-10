@@ -12,8 +12,13 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "test": "node --import tsx --test test/*.test.ts",
+    "prepack": "npm run build",
     "prepublishOnly": "npm run build"
   },
+  "files": [
+    "dist",
+    "CLOTHOID_PROPOSAL.md"
+  ],
   "keywords": [
     "allure",
     "wkt",

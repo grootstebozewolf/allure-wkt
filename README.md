@@ -5,7 +5,7 @@
 Preprocessor CLI for Allure reports that converts Well-Known Text (WKT) geometry attachments into high-quality SVG visualizations.
 
 <p align="center">
-  <img src="docs/hero.svg" alt="Rendered SVG of a real ProRail rail-bend alignment: straight + entry clothoid + R≈200 m circular arc + exit clothoid + straight, as one continuous polyline" width="480"/>
+  <img src="https://raw.githubusercontent.com/grootstebozewolf/allure-wkt/main/docs/hero.svg" alt="Rendered SVG of a real ProRail rail-bend alignment: straight + entry clothoid + R≈200 m circular arc + exit clothoid + straight, as one continuous polyline" width="480"/>
 </p>
 
 <p align="center">
@@ -70,10 +70,10 @@ through this exact preprocessor — no special-case code paths, no hand-tuning.
 
 | Trajectory | Elements | Rendered SVG |
 |---|---:|---|
-| `504_13BR_17.1` | 149 | <img src="docs/gallery/sample-149-elements-504_13BR_17.1.svg" alt="" width="200"/> |
-| `467_011L_102.0` | 18 | <img src="docs/gallery/sample-18-elements-467_011L_102.0.svg" alt="" width="200"/> |
-| `011_39A/39B_S_T_68.8` | 5 | <img src="docs/gallery/sample-5-elements-011_39A_39B.svg" alt="" width="200"/> |
-| `536_225B/233A_S_T_60.7` | 3 | <img src="docs/gallery/sample-3-elements-536_225B_233A.svg" alt="" width="200"/> |
+| `504_13BR_17.1` | 149 | <img src="https://raw.githubusercontent.com/grootstebozewolf/allure-wkt/main/docs/gallery/sample-149-elements-504_13BR_17.1.svg" alt="" width="200"/> |
+| `467_011L_102.0` | 18 | <img src="https://raw.githubusercontent.com/grootstebozewolf/allure-wkt/main/docs/gallery/sample-18-elements-467_011L_102.0.svg" alt="" width="200"/> |
+| `011_39A/39B_S_T_68.8` | 5 | <img src="https://raw.githubusercontent.com/grootstebozewolf/allure-wkt/main/docs/gallery/sample-5-elements-011_39A_39B.svg" alt="" width="200"/> |
+| `536_225B/233A_S_T_60.7` | 3 | <img src="https://raw.githubusercontent.com/grootstebozewolf/allure-wkt/main/docs/gallery/sample-3-elements-536_225B_233A.svg" alt="" width="200"/> |
 
 Reproduce locally (~minutes for the full network):
 

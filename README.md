@@ -4,6 +4,14 @@
 
 Preprocessor CLI for Allure reports that converts Well-Known Text (WKT) geometry attachments into high-quality SVG visualizations.
 
+<p align="center">
+  <img src="docs/hero.svg" alt="Rendered SVG of a real ProRail rail-bend alignment: straight + entry clothoid + R≈200 m circular arc + exit clothoid + straight, as one continuous polyline" width="480"/>
+</p>
+
+<p align="center">
+  <em>What allure-wkt produces from a single <code>COMPOUNDCURVE (..., CLOTHOID (...), CIRCULARSTRING (...), CLOTHOID (...), ...)</code> attachment — a real ProRail rail-bend (track 823_12V_4.3, EPSG:28992) rendered as one continuous SVG polyline. <a href="docs/hero-shot.wkt">Source WKT</a>.</em>
+</p>
+
 ## Why this exists
 
 When your tests produce WKT geometries (e.g. LINESTRINGs from GIS, road alignment, computational geometry, or map rendering tests), raw WKT text in the Allure Attachments tab is hard to interpret.

@@ -106,10 +106,16 @@ function buildSvg(rawBbox: BBox, innerSvg: string): string {
   const width = bbox.maxX - bbox.minX;
   const height = bbox.maxY - bbox.minY;
   const viewBox = `${fmt(bbox.minX)} ${fmt(bbox.minY)} ${fmt(width)} ${fmt(height)}`;
+  // Cap the longer side at SVG_SIZE; scale the shorter side to keep the
+  // rendered canvas's aspect matching the viewBox so embedders don't see
+  // dead space around the geometry.
+  const aspectScale = SVG_SIZE / Math.max(width, height);
+  const svgWidth = Math.round(width * aspectScale);
+  const svgHeight = Math.round(height * aspectScale);
   const flipOffset = bbox.minY + bbox.maxY;
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<svg xmlns="${SVG_NS}" viewBox="${viewBox}" width="${SVG_SIZE}" height="${SVG_SIZE}">`,
+    `<svg xmlns="${SVG_NS}" viewBox="${viewBox}" width="${svgWidth}" height="${svgHeight}">`,
     `  <g transform="translate(0, ${fmt(flipOffset)}) scale(1, -1)">`,
     `    ${innerSvg}`,
     `  </g>`,

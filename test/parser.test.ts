@@ -53,11 +53,50 @@ describe('parseWkt: POINT happy paths', () => {
   });
 });
 
+describe('parseWkt: LINESTRING happy paths', () => {
+  it('parses a 2-point LINESTRING', () => {
+    assert.deepEqual(parseWkt('LINESTRING (0 0, 10 5)'), {
+      type: 'LineString',
+      coordinates: [[0, 0], [10, 5]],
+    });
+  });
+
+  it('parses a multi-segment LINESTRING', () => {
+    assert.deepEqual(parseWkt('LINESTRING (0 0, 10 5, 20 0, 30 10)'), {
+      type: 'LineString',
+      coordinates: [[0, 0], [10, 5], [20, 0], [30, 10]],
+    });
+  });
+
+  it('tolerates whitespace and case variation', () => {
+    assert.deepEqual(parseWkt(' linestring( 0 0 ,  10  5 ) '), {
+      type: 'LineString',
+      coordinates: [[0, 0], [10, 5]],
+    });
+  });
+});
+
+describe('parseWkt: TRIANGLE happy paths', () => {
+  it('parses the canonical TRIANGLE', () => {
+    assert.deepEqual(parseWkt('TRIANGLE ((0 0, 1 0, 0 1, 0 0))'), {
+      type: 'Triangle',
+      coordinates: [[0, 0], [1, 0], [0, 1], [0, 0]],
+    });
+  });
+
+  it('handles negative and decimal coordinates', () => {
+    assert.deepEqual(parseWkt('TRIANGLE ((-1 -1, 2.5 0, 0 3.5, -1 -1))'), {
+      type: 'Triangle',
+      coordinates: [[-1, -1], [2.5, 0], [0, 3.5], [-1, -1]],
+    });
+  });
+});
+
 describe('parseWkt: error paths', () => {
   it('throws on unsupported geometry types', () => {
     assert.throws(
-      () => parseWkt('LINESTRING (0 0, 1 1)'),
-      /Unsupported WKT geometry.*LINESTRING/,
+      () => parseWkt('POLYGON ((0 0, 1 0, 1 1, 0 0))'),
+      /Unsupported WKT geometry.*POLYGON/,
     );
   });
 
@@ -73,6 +112,27 @@ describe('parseWkt: error paths', () => {
     assert.throws(
       () => parseWkt('POINT (10 20) extra'),
       /Unexpected token.*extra/,
+    );
+  });
+
+  it('throws on a single-point LINESTRING', () => {
+    assert.throws(
+      () => parseWkt('LINESTRING (0 0)'),
+      /LINESTRING must have at least 2 points/,
+    );
+  });
+
+  it('throws on a TRIANGLE with the wrong coord count', () => {
+    assert.throws(
+      () => parseWkt('TRIANGLE ((0 0, 1 0, 0 1))'),
+      /TRIANGLE must have exactly 4 coordinates/,
+    );
+  });
+
+  it('throws on a TRIANGLE that is not closed', () => {
+    assert.throws(
+      () => parseWkt('TRIANGLE ((0 0, 1 0, 0 1, 9 9))'),
+      /first and last coordinates must be equal/,
     );
   });
 });

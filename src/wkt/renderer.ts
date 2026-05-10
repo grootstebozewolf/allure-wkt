@@ -4,29 +4,36 @@
  *
  * Geometry → SVG renderer. Pure function, zero deps.
  *
- * v1 supports {@link Point} only. The {@link calculateBoundingBox}
- * helper is extracted so it's reusable for LineString / Polygon /
- * Multi* in subsequent commits without re-deriving the same logic.
+ * v1 supports {@link Point}, {@link LineString}, and {@link Triangle}.
+ * Additional kinds layer in via new cases in {@link renderToSvg}.
  *
  * Coordinate convention: WKT/world coords are written into the SVG
- * directly (i.e. {@code <circle cx="x" cy="y"/>}), and the viewBox
- * is computed in world coords. SVG's Y-down vs WKT's Y-up only
- * matters when comparing two coordinates -- for a single point it
- * is visually invisible. Y-flip lands when LineString does and the
- * orientation actually matters.
+ * directly ({@code <circle cx="x" cy="y"/>}, {@code points="x,y x,y"}).
+ * The viewBox is in world coords too. SVG natively renders Y-down,
+ * but a {@code <g transform="translate(0, minY+maxY) scale(1, -1)">}
+ * wrapper flips world Y-up content into the viewport so a LINESTRING
+ * heading "up" in WKT actually renders heading up. The flip pivots
+ * around the bbox horizontal centerline so a single POINT stays
+ * positionally invariant.
  */
 import type { Coord, Geometry } from './types.js';
 
 const PAD_FRACTION = 0.1;
 const PAD_MIN = 10;
 const SVG_SIZE = 400;
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const POINT_RADIUS = 4;
 const POINT_FILL = '#0ea5e9';
 const POINT_STROKE = '#0369a1';
 const POINT_STROKE_WIDTH = 1;
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
+const LINE_STROKE = '#0ea5e9';
+const LINE_STROKE_WIDTH = 2;
+
+const POLYGON_FILL = 'rgba(14, 165, 233, 0.25)';
+const POLYGON_STROKE = '#0369a1';
+const POLYGON_STROKE_WIDTH = 2;
 
 /** Min/max bounds in world coordinates. */
 export interface BBox {
@@ -37,9 +44,9 @@ export interface BBox {
 }
 
 /**
- * Tight bounding box around a coordinate sample. Throws on an empty
- * input -- a geometry without coords has no meaningful bbox; callers
- * must handle empty geometries before reaching here.
+ * Tight bounding box around a coordinate sample. Throws on empty input
+ * -- a geometry without coords has no meaningful bbox; callers must
+ * handle empty geometries before reaching here.
  */
 export function calculateBoundingBox(coords: readonly Coord[]): BBox {
   if (coords.length === 0) {
@@ -71,28 +78,64 @@ function padBoundingBox(bbox: BBox): BBox {
   };
 }
 
-/** Format a number for SVG attribute output -- short, locale-independent,
- *  no trailing decimals on integers. */
+/** Format a number for SVG attribute output. {@code String(n)} already
+ *  handles both integers ("1500") and decimals ("-0.025") cleanly for
+ *  our inputs; the named helper exists as a single seam if a future
+ *  formatting policy (e.g. fixed precision, scientific cutoff) is needed. */
 function fmt(n: number): string {
-  if (Number.isInteger(n)) return String(n);
-  // Trim default JS toString output: 0.025, -1500.5, etc. are fine as-is.
   return String(n);
 }
 
-/** SVG document for a {@link Point}. */
-function renderPoint(coords: Coord): string {
-  const bbox = padBoundingBox(calculateBoundingBox([coords]));
+/** "x1,y1 x2,y2 ..." -- the format used by SVG <polyline> and <polygon>. */
+function pointsAttr(coords: readonly Coord[]): string {
+  return coords.map(([x, y]) => `${fmt(x)},${fmt(y)}`).join(' ');
+}
+
+/**
+ * Wrap a geometry-specific SVG fragment in a Y-flipped {@code <svg>}
+ * document. The fragment author writes world coords; the wrapper
+ * handles document framing and Y-up→Y-down conversion.
+ */
+function buildSvg(rawBbox: BBox, innerSvg: string): string {
+  const bbox = padBoundingBox(rawBbox);
   const width = bbox.maxX - bbox.minX;
   const height = bbox.maxY - bbox.minY;
   const viewBox = `${fmt(bbox.minX)} ${fmt(bbox.minY)} ${fmt(width)} ${fmt(height)}`;
+  const flipOffset = bbox.minY + bbox.maxY;
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="${SVG_NS}" viewBox="${viewBox}" width="${SVG_SIZE}" height="${SVG_SIZE}">`,
-    `  <circle cx="${fmt(coords[0])}" cy="${fmt(coords[1])}" r="${POINT_RADIUS}" `
-      + `fill="${POINT_FILL}" stroke="${POINT_STROKE}" stroke-width="${POINT_STROKE_WIDTH}"/>`,
+    `  <g transform="translate(0, ${fmt(flipOffset)}) scale(1, -1)">`,
+    `    ${innerSvg}`,
+    `  </g>`,
     `</svg>`,
     '',
   ].join('\n');
+}
+
+function renderPoint(coords: Coord): string {
+  const inner =
+    `<circle cx="${fmt(coords[0])}" cy="${fmt(coords[1])}" r="${POINT_RADIUS}" `
+    + `fill="${POINT_FILL}" stroke="${POINT_STROKE}" stroke-width="${POINT_STROKE_WIDTH}"/>`;
+  return buildSvg(calculateBoundingBox([coords]), inner);
+}
+
+function renderLineString(coords: readonly Coord[]): string {
+  const inner =
+    `<polyline points="${pointsAttr(coords)}" fill="none" `
+    + `stroke="${LINE_STROKE}" stroke-width="${LINE_STROKE_WIDTH}" `
+    + `stroke-linejoin="round" stroke-linecap="round"/>`;
+  return buildSvg(calculateBoundingBox(coords), inner);
+}
+
+function renderTriangle(coords: readonly Coord[]): string {
+  // SVG <polygon> auto-closes; emit only the unique 3 corners.
+  const open = coords.slice(0, -1);
+  const inner =
+    `<polygon points="${pointsAttr(open)}" `
+    + `fill="${POLYGON_FILL}" stroke="${POLYGON_STROKE}" `
+    + `stroke-width="${POLYGON_STROKE_WIDTH}" stroke-linejoin="round"/>`;
+  return buildSvg(calculateBoundingBox(coords), inner);
 }
 
 /**
@@ -104,11 +147,17 @@ export function renderToSvg(geom: Geometry): string {
   switch (geom.type) {
     case 'Point':
       return renderPoint(geom.coordinates);
+    case 'LineString':
+      return renderLineString(geom.coordinates);
+    case 'Triangle':
+      return renderTriangle(geom.coordinates);
     default: {
       // Exhaustiveness guard. As the Geometry union grows, this becomes
       // a TS error if a new case isn't handled here.
-      const _exhaustive: never = geom.type;
-      throw new Error(`Unsupported geometry type for renderToSvg: ${_exhaustive}`);
+      const _exhaustive: never = geom;
+      throw new Error(
+        `Unsupported geometry type for renderToSvg: ${(_exhaustive as Geometry).type}`,
+      );
     }
   }
 }

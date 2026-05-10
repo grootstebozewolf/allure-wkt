@@ -43,9 +43,11 @@ In CI (example for GitHub Actions / Jenkins / GitLab):
 
 ## v1 supported geometries
 
-- POINT (other types ship additively as the parser/renderer grow)
+- POINT
+- LINESTRING (≥ 2 points)
+- TRIANGLE (3 corners + closing repeat, per OGC)
 
-See `CLOTHOID_PROPOSAL.md` for the planned curve support roadmap (CIRCULARSTRING, COMPOUNDCURVE, CLOTHOID).
+LINESTRING / POLYGON-with-holes / MULTI* / GEOMETRYCOLLECTION ship additively as the parser/renderer grow. See `CLOTHOID_PROPOSAL.md` for the planned curve support roadmap (CIRCULARSTRING, COMPOUNDCURVE, CLOTHOID).
 
 ## How it works (architecture)
 

@@ -19,5 +19,25 @@ export interface Point {
   coordinates: Coord;
 }
 
+/** A connected sequence of two or more points (open path). */
+export interface LineString {
+  type: 'LineString';
+  coordinates: readonly Coord[];
+}
+
+/**
+ * A closed 3-corner ring. Per OGC, the coordinate list has exactly 4
+ * coords -- 3 unique corners plus a closing repeat of the first --
+ * and the WKT syntax wraps the list in an extra paren pair to mirror
+ * POLYGON's outer-ring shape: {@code TRIANGLE ((p1, p2, p3, p1))}.
+ * The closing repeat is preserved here so a future POLYGON-with-holes
+ * type can share validation; the renderer drops it before emitting
+ * to {@code <polygon>} (which auto-closes).
+ */
+export interface Triangle {
+  type: 'Triangle';
+  coordinates: readonly Coord[];
+}
+
 /** Discriminated union of every geometry kind the parser can produce. */
-export type Geometry = Point;
+export type Geometry = Point | LineString | Triangle;

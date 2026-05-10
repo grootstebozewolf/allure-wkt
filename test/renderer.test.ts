@@ -75,6 +75,70 @@ describe('renderToSvg: POINT', () => {
   });
 });
 
+describe('renderToSvg: LINESTRING', () => {
+  it('emits a <polyline> with the coordinate list', () => {
+    const svg = renderToSvg({
+      type: 'LineString',
+      coordinates: [[0, 0], [10, 5], [20, 0]],
+    });
+    assert.match(svg, /<polyline\b[^>]*\bpoints="0,0 10,5 20,0"/);
+  });
+
+  it('uses fill="none" so the polyline does not auto-fill', () => {
+    const svg = renderToSvg({
+      type: 'LineString',
+      coordinates: [[0, 0], [10, 0]],
+    });
+    assert.match(svg, /<polyline\b[^>]*\bfill="none"/);
+  });
+
+  it('produces a viewBox that brackets every coordinate', () => {
+    const svg = renderToSvg({
+      type: 'LineString',
+      coordinates: [[0, 0], [100, 50]],
+    });
+    const [vx, vy, w, h] = viewBoxOf(svg);
+    assert.ok(vx <= 0 && vx + w >= 100, 'x extent must cover [0, 100]');
+    assert.ok(vy <= 0 && vy + h >= 50, 'y extent must cover [0, 50]');
+  });
+
+  it('wraps the polyline in a Y-flipping <g transform>', () => {
+    const svg = renderToSvg({
+      type: 'LineString',
+      coordinates: [[0, 0], [10, 5]],
+    });
+    assert.match(svg, /<g[^>]*transform="translate\(0, [^)]+\) scale\(1, -1\)"/);
+  });
+});
+
+describe('renderToSvg: TRIANGLE', () => {
+  it('emits a <polygon> using only the 3 unique corners (closing repeat dropped)', () => {
+    const svg = renderToSvg({
+      type: 'Triangle',
+      coordinates: [[0, 0], [1, 0], [0, 1], [0, 0]],
+    });
+    assert.match(svg, /<polygon\b[^>]*\bpoints="0,0 1,0 0,1"/);
+  });
+
+  it('applies a fill so the interior is visible', () => {
+    const svg = renderToSvg({
+      type: 'Triangle',
+      coordinates: [[0, 0], [1, 0], [0, 1], [0, 0]],
+    });
+    assert.match(svg, /<polygon\b[^>]*\bfill="rgba\([^)]+\)"/);
+  });
+
+  it('produces a viewBox that brackets every corner', () => {
+    const svg = renderToSvg({
+      type: 'Triangle',
+      coordinates: [[-2, -3], [4, 0], [0, 5], [-2, -3]],
+    });
+    const [vx, vy, w, h] = viewBoxOf(svg);
+    assert.ok(vx <= -2 && vx + w >= 4, 'x extent must cover [-2, 4]');
+    assert.ok(vy <= -3 && vy + h >= 5, 'y extent must cover [-3, 5]');
+  });
+});
+
 describe('calculateBoundingBox', () => {
   it('returns degenerate bbox for a single point', () => {
     const bbox = calculateBoundingBox([[10, 20]]);

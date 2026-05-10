@@ -1,0 +1,25 @@
+{
+  "name": "allure-wkt-vitest-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-contained example: tests that attach WKT, allure-wkt renders them, Allure 3 displays the SVGs natively in the Attachments tab.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "preprocess": "node --import tsx --input-type=module -e \"import { runCli } from '../../src/index.js'; await runCli(['./allure-results']);\"",
+    "report": "npm run test && npm run preprocess && allure generate ./allure-results -o ./allure-report",
+    "open": "open allure-report/index.html",
+    "all": "npm run report && npm run open"
+  },
+  "devDependencies": {
+    "allure": "^3.7.0",
+    "allure-js-commons": "^3.7.0",
+    "allure-vitest": "^3.7.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  }
+}

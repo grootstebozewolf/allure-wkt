@@ -127,7 +127,8 @@ function buildSvg(rawBbox: BBox, innerSvg: string): string {
 function renderPoint(coords: Coord): string {
   const inner =
     `<circle cx="${fmt(coords[0])}" cy="${fmt(coords[1])}" r="${POINT_RADIUS}" `
-    + `fill="${POINT_FILL}" stroke="${POINT_STROKE}" stroke-width="${POINT_STROKE_WIDTH}"/>`;
+    + `fill="${POINT_FILL}" stroke="${POINT_STROKE}" `
+    + `stroke-width="${POINT_STROKE_WIDTH}" vector-effect="non-scaling-stroke"/>`;
   return buildSvg(calculateBoundingBox([coords]), inner);
 }
 
@@ -142,7 +143,8 @@ function polygonElement(closedRing: readonly Coord[]): string {
   return (
     `<polygon points="${pointsAttr(open)}" `
     + `fill="${POLYGON_FILL}" stroke="${POLYGON_STROKE}" `
-    + `stroke-width="${POLYGON_STROKE_WIDTH}" stroke-linejoin="round"/>`
+    + `stroke-width="${POLYGON_STROKE_WIDTH}" stroke-linejoin="round" `
+    + `vector-effect="non-scaling-stroke"/>`
   );
 }
 
@@ -151,12 +153,19 @@ function renderTriangle(coords: readonly Coord[]): string {
 }
 
 /** Build the standard polyline element string used by every "open path"
- *  geometry (LINESTRING, CIRCULARSTRING, COMPOUNDCURVE). */
+ *  geometry (LINESTRING, CIRCULARSTRING, COMPOUNDCURVE).
+ *
+ *  {@code vector-effect="non-scaling-stroke"} pins the stroke width to
+ *  screen pixels regardless of the viewBox scale. Without it, a stroke
+ *  width of 2 viewBox-units becomes sub-pixel for any geometry whose
+ *  bbox spans more than ~1000 units (e.g. a 10-km rail alignment in
+ *  metres) and the line vanishes despite being structurally present. */
 function polylineElement(samples: readonly Coord[]): string {
   return (
     `<polyline points="${pointsAttr(samples)}" fill="none" `
     + `stroke="${LINE_STROKE}" stroke-width="${LINE_STROKE_WIDTH}" `
-    + `stroke-linejoin="round" stroke-linecap="round"/>`
+    + `stroke-linejoin="round" stroke-linecap="round" `
+    + `vector-effect="non-scaling-stroke"/>`
   );
 }
 

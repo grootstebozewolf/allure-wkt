@@ -73,6 +73,14 @@ describe('renderToSvg: POINT', () => {
     const svg = svgFor(10, 20);
     assert.match(svg, /<circle[^>]*\bfill="#[0-9a-fA-F]+"/);
   });
+
+  it('uses vector-effect="non-scaling-stroke" so the stroke is visible at any viewBox scale', () => {
+    // Regression guard: without this, a multi-km bbox (e.g. a real
+    // ProRail alignment) renders the polyline at sub-pixel stroke
+    // width and the SVG appears empty in the browser.
+    const svg = svgFor(10, 20);
+    assert.match(svg, /<circle[^>]*\bvector-effect="non-scaling-stroke"/);
+  });
 });
 
 describe('renderToSvg: LINESTRING', () => {
@@ -90,6 +98,14 @@ describe('renderToSvg: LINESTRING', () => {
       coordinates: [[0, 0], [10, 0]],
     });
     assert.match(svg, /<polyline\b[^>]*\bfill="none"/);
+  });
+
+  it('pins the stroke to screen pixels via vector-effect="non-scaling-stroke"', () => {
+    const svg = renderToSvg({
+      type: 'LineString',
+      coordinates: [[0, 0], [10000, 5000]],
+    });
+    assert.match(svg, /<polyline\b[^>]*\bvector-effect="non-scaling-stroke"/);
   });
 
   it('produces a viewBox that brackets every coordinate', () => {
@@ -126,6 +142,14 @@ describe('renderToSvg: TRIANGLE', () => {
       coordinates: [[0, 0], [1, 0], [0, 1], [0, 0]],
     });
     assert.match(svg, /<polygon\b[^>]*\bfill="rgba\([^)]+\)"/);
+  });
+
+  it('pins the polygon stroke via vector-effect="non-scaling-stroke"', () => {
+    const svg = renderToSvg({
+      type: 'Triangle',
+      coordinates: [[0, 0], [10000, 0], [5000, 8000], [0, 0]],
+    });
+    assert.match(svg, /<polygon\b[^>]*\bvector-effect="non-scaling-stroke"/);
   });
 
   it('produces a viewBox that brackets every corner', () => {

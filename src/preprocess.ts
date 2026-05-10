@@ -21,6 +21,8 @@ import type {
   AllureStep,
   WktMatch,
 } from './types.js';
+import { parseWkt } from './wkt/parser.js';
+import { renderToSvg } from './wkt/renderer.js';
 
 const LOG_PREFIX = '[allure-wkt]';
 const RESULT_FILE_SUFFIX = '-result.json';
@@ -131,27 +133,20 @@ async function readAttachmentSource(
 }
 
 /**
- * === SEAM: render ===
- *
- * Hardcoded placeholder SVG with a single {@code <circle>} so the contract
- * test pins the expected shape. The real renderer plugs in here:
- *
- * <pre>
- *   const geom = parseWkt(wktContent.trim());
- *   const svg  = renderToSvg(geom, options);
- * </pre>
- *
- * Nothing outside this function needs to move when the wedge is replaced.
+ * Parse the raw WKT and render to an SVG document. Returns undefined
+ * if the content can't be parsed; callers warn-and-continue so a single
+ * bad attachment doesn't fail the whole preprocessing run.
  */
-function renderPlaceholder(_wktContent: string): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
-  <rect width="400" height="300" fill="#f8fafc" stroke="#e2e8f0"/>
-  <circle cx="200" cy="150" r="6" fill="#0ea5e9" stroke="#0369a1" stroke-width="1"/>
-  <text x="200" y="180" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="12">
-    WKT Visualization (placeholder renderer)
-  </text>
-</svg>`;
+function renderWkt(wktContent: string, sourceLabel: string): string | undefined {
+  try {
+    return renderToSvg(parseWkt(wktContent.trim()));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `${LOG_PREFIX} Skipping ${sourceLabel}: ${msg}`,
+    );
+    return undefined;
+  }
 }
 
 /**
@@ -186,10 +181,15 @@ export async function processMatch(match: WktMatch): Promise<void> {
     return;
   }
 
+  const svg = renderWkt(wktContent, match.attachment.source);
+  if (svg === undefined) {
+    return;
+  }
+
   const svgSource = `${randomUUID()}-attachment.svg`;
   await writeFile(
     join(match.attachmentDir, svgSource),
-    renderPlaceholder(wktContent),
+    svg,
     'utf8',
   );
   await attachSvgRef(match, svgSource);

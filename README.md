@@ -41,15 +41,9 @@ In CI (example for GitHub Actions / Jenkins / GitLab):
     path: allure-report/
 ```
 
-The command is idempotent: if an SVG sidecar already exists for a WKT attachment it skips re-rendering.
-
 ## v1 supported geometries
 
-- POINT
-- LINESTRING
-- POLYGON (including holes)
-- MULTIPOINT / MULTILINESTRING / MULTIPOLYGON
-- GEOMETRYCOLLECTION
+- POINT (other types ship additively as the parser/renderer grow)
 
 See `CLOTHOID_PROPOSAL.md` for the planned curve support roadmap (CIRCULARSTRING, COMPOUNDCURVE, CLOTHOID).
 

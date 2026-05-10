@@ -1,6 +1,6 @@
 {
   "name": "allure-wkt",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Preprocessor for Allure: turns WKT geometry attachments into beautiful SVG visualizations that appear natively in the test's Attachments tab.",
   "type": "module",
   "bin": {

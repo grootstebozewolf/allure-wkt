@@ -10,9 +10,9 @@
  */
 
 import { readdir, readFile, writeFile, stat } from 'node:fs/promises';
-import { join, dirname, extname, basename } from 'node:path';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { AllureResult, AllureAttachment, AllureStep, WktMatch } from './types.js';
+import type { AllureResult, AllureAttachment, WktMatch } from './types.js';
 
 // TODO: import real parser + renderer once implemented
 // import { parseWkt } from './wkt/parser.js';
@@ -156,8 +156,12 @@ async function processWktAttachment(match: WktMatch): Promise<void> {
   console.log(`[allure-wkt] Created ${svgSource} for ${attachment.source}`);
 }
 
-async function main() {
-  const args = process.argv.slice(2);
+/**
+ * Programmatic entry point. Throws on bad input rather than calling
+ * process.exit so tests can exercise the full pipeline in-process.
+ * Returns the number of WKT attachments processed.
+ */
+export async function runCli(args: string[]): Promise<number> {
   if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
     console.log(`
 Usage: allure-wkt <allure-results-directory>
@@ -168,19 +172,13 @@ that appear natively in the Allure report's Attachments tab.
 Example:
   npx allure-wkt ./allure-results
 `);
-    process.exit(0);
+    return 0;
   }
 
   const resultsDir = args[0];
-  try {
-    const stats = await stat(resultsDir);
-    if (!stats.isDirectory()) {
-      console.error(`Error: ${resultsDir} is not a directory`);
-      process.exit(1);
-    }
-  } catch {
-    console.error(`Error: Cannot access directory ${resultsDir}`);
-    process.exit(1);
+  const stats = await stat(resultsDir).catch(() => null);
+  if (!stats || !stats.isDirectory()) {
+    throw new Error(`Cannot access directory ${resultsDir} (or it is not a directory)`);
   }
 
   console.log(`[allure-wkt] Scanning ${resultsDir} for WKT attachments...`);
@@ -193,9 +191,18 @@ Example:
   }
 
   console.log('[allure-wkt] Done. You can now run `allure generate` or `allure serve`.');
+  return matches.length;
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+// Only auto-run when invoked as the script (not when imported by tests).
+const isCliEntry =
+  import.meta.url === `file://${process.argv[1]}` ||
+  process.argv[1]?.endsWith('/index.ts') ||
+  process.argv[1]?.endsWith('/index.js');
+
+if (isCliEntry) {
+  runCli(process.argv.slice(2)).catch(err => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

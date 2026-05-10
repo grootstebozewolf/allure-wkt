@@ -61,6 +61,31 @@ In CI (example for GitHub Actions / Jenkins / GitLab):
 
 POLYGON-with-holes / MULTI* / GEOMETRYCOLLECTION ship additively as the parser/renderer grow. See `CLOTHOID_PROPOSAL.md` for design notes on the curve types.
 
+## Stretch goal: the entire ProRail Sigma dataset
+
+`examples/prorail/` ships a converter + gallery generator that runs the
+**full Dutch national rail alignment dataset** (≈ 122k analytical track
+elements, **9,058 of them clothoids**, grouped into **11,495 trajectories**)
+through this exact preprocessor — no special-case code paths, no hand-tuning.
+
+| Trajectory | Elements | Rendered SVG |
+|---|---:|---|
+| `504_13BR_17.1` | 149 | <img src="docs/gallery/sample-149-elements-504_13BR_17.1.svg" alt="" width="200"/> |
+| `467_011L_102.0` | 18 | <img src="docs/gallery/sample-18-elements-467_011L_102.0.svg" alt="" width="200"/> |
+| `011_39A/39B_S_T_68.8` | 5 | <img src="docs/gallery/sample-5-elements-011_39A_39B.svg" alt="" width="200"/> |
+| `536_225B/233A_S_T_60.7` | 3 | <img src="docs/gallery/sample-3-elements-536_225B_233A.svg" alt="" width="200"/> |
+
+Reproduce locally (~minutes for the full network):
+
+```sh
+npx tsx examples/prorail/fetch-and-convert.ts --all --out /tmp/prorail-all
+npx tsx src/index.ts /tmp/prorail-all
+npx tsx examples/prorail/build-gallery.ts --in /tmp/prorail-all --out /tmp/prorail-gallery
+open /tmp/prorail-gallery/index.html
+```
+
+Source data: [ProRail Spoorgeometrie](https://maps.prorail.nl/arcgis/rest/services/Spoorgeometrie/FeatureServer/11) (CC BY 4.0). See [`examples/prorail/README.md`](examples/prorail/README.md) for the field-by-field WKT mapping.
+
 ## How it works (architecture)
 
 - Pure post-processor on the stable `allure-results/` format (no dependency on `@allurereport/plugin-api` or any specific writer).

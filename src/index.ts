@@ -8,8 +8,9 @@
  * Usage:
  *   npx allure-wkt <allure-results-directory>
  */
+import { realpathSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { findWktMatches, processMatch } from './preprocess.js';
 
@@ -59,13 +60,28 @@ export async function runCli(args: string[]): Promise<number> {
   return matches.length;
 }
 
-// Auto-run only when this file is the Node entry point. Importing it from
-// a test or another module must not trigger main().
-const isCliEntry =
-  process.argv[1] !== undefined &&
-  import.meta.url === pathToFileURL(process.argv[1]).href;
+// Auto-run only when this file is the Node entry point. Importing it
+// from a test or another module must not trigger main().
+//
+// Symlink note: when installed from npm, the CLI is invoked through
+// `node_modules/.bin/allure-wkt -> ../allure-wkt/dist/index.js`.
+// `process.argv[1]` is then the symlink path; `import.meta.url` is
+// the resolved target. Realpath-resolve both sides before comparing,
+// or the guard fails silently and the script exits without running
+// (caught the hard way by dogfooding the published package).
+function isCliEntry(): boolean {
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  try {
+    const realArgv = pathToFileURL(realpathSync(argv1)).href;
+    const realModule = pathToFileURL(realpathSync(fileURLToPath(import.meta.url))).href;
+    return realArgv === realModule;
+  } catch {
+    return false;
+  }
+}
 
-if (isCliEntry) {
+if (isCliEntry()) {
   runCli(process.argv.slice(2)).catch((err: unknown) => {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);

@@ -63,17 +63,21 @@ Two version-alignment gotchas if you adapt this to your own project:
   different report frontend, different schema for some features. v3 is the
   current line; this example targets it.
 
-## How `npm run preprocess` calls the local `allure-wkt`
+## How `npm run preprocess` invokes `allure-wkt`
 
-This example sits inside the `allure-wkt` repo, so the `preprocess`
-script imports `runCli` directly from `../../src/index.js` via `tsx`:
+This example consumes the **published** [`allure-wkt`](https://www.npmjs.com/package/allure-wkt)
+package from npm — exactly the way a downstream project would. It's
+listed in `devDependencies` and the script is a one-liner:
 
 ```jsonc
-"preprocess": "node --import tsx --input-type=module -e \"import { runCli } from '../../src/index.js'; await runCli(['./allure-results']);\""
+"preprocess": "allure-wkt ./allure-results"
 ```
 
-In a real downstream project you'd just `npm install --save-dev allure-wkt`
-(once published) and call `npx allure-wkt allure-results/` instead.
+`npm` puts the binary in `node_modules/.bin/` (per the package's
+`bin` entry) and the npm-script's `PATH` resolution picks it up.
+This example therefore exercises the same compiled `dist/` that
+every other consumer downloads — there is no in-repo TypeScript
+shortcut.
 
 ## License
 

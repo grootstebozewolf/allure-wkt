@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "preprocess": "node --import tsx --input-type=module -e \"import { runCli } from '../../src/index.js'; await runCli(['./allure-results']);\"",
+    "preprocess": "allure-wkt ./allure-results",
     "report": "npm run test && npm run preprocess && allure generate ./allure-results -o ./allure-report",
     "open": "open allure-report/index.html",
     "all": "npm run report && npm run open"
@@ -15,7 +15,7 @@
     "allure": "^3.7.0",
     "allure-js-commons": "^3.7.0",
     "allure-vitest": "^3.7.0",
-    "tsx": "^4.0.0",
+    "allure-wkt": "^0.2.1",
     "typescript": "^5.5.0",
     "vitest": "^4.0.0"
   },

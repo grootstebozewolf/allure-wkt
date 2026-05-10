@@ -16,7 +16,12 @@
  * around the bbox horizontal centerline so a single POINT stays
  * positionally invariant.
  */
-import type { Coord, Geometry } from './types.js';
+import type { CompoundCurve, Coord, Geometry } from './types.js';
+import {
+  circularStringEndTangent,
+  densifyCircularString,
+} from './arc.js';
+import { clothoidEndTangent, densifyClothoid } from './clothoid.js';
 
 const PAD_FRACTION = 0.1;
 const PAD_MIN = 10;
@@ -121,11 +126,7 @@ function renderPoint(coords: Coord): string {
 }
 
 function renderLineString(coords: readonly Coord[]): string {
-  const inner =
-    `<polyline points="${pointsAttr(coords)}" fill="none" `
-    + `stroke="${LINE_STROKE}" stroke-width="${LINE_STROKE_WIDTH}" `
-    + `stroke-linejoin="round" stroke-linecap="round"/>`;
-  return buildSvg(calculateBoundingBox(coords), inner);
+  return buildSvg(calculateBoundingBox(coords), polylineElement(coords));
 }
 
 /** One {@code <polygon>} element for a closed-ring coord list. SVG
@@ -141,6 +142,91 @@ function polygonElement(closedRing: readonly Coord[]): string {
 
 function renderTriangle(coords: readonly Coord[]): string {
   return buildSvg(calculateBoundingBox(coords), polygonElement(coords));
+}
+
+/** Build the standard polyline element string used by every "open path"
+ *  geometry (LINESTRING, CIRCULARSTRING, COMPOUNDCURVE). */
+function polylineElement(samples: readonly Coord[]): string {
+  return (
+    `<polyline points="${pointsAttr(samples)}" fill="none" `
+    + `stroke="${LINE_STROKE}" stroke-width="${LINE_STROKE_WIDTH}" `
+    + `stroke-linejoin="round" stroke-linecap="round"/>`
+  );
+}
+
+function renderCircularString(coords: readonly Coord[]): string {
+  const samples = densifyCircularString(coords);
+  return buildSvg(calculateBoundingBox(samples), polylineElement(samples));
+}
+
+/**
+ * Walk the COMPOUNDCURVE members in order, threading (point, tangent)
+ * state from one to the next so each CLOTHOID sees the analytical
+ * start state proposal §3.3 promises. Concatenates all densified
+ * samples into a single polyline (junction repeats deduped) so the
+ * chain renders as one continuous path.
+ */
+function renderCompoundCurve(cc: CompoundCurve): string {
+  const all: Coord[] = [];
+  let cursor: Coord | undefined;
+  let cursorTheta = 0;
+
+  for (const member of cc.members) {
+    let memberSamples: Coord[];
+
+    switch (member.type) {
+      case 'LineString': {
+        memberSamples = [...member.coordinates];
+        const last = memberSamples[memberSamples.length - 1];
+        const beforeLast = memberSamples[memberSamples.length - 2];
+        cursor = last;
+        cursorTheta = Math.atan2(
+          last[1] - beforeLast[1],
+          last[0] - beforeLast[0],
+        );
+        break;
+      }
+      case 'CircularString': {
+        memberSamples = densifyCircularString(member.coordinates);
+        const lastCp = member.coordinates[member.coordinates.length - 1];
+        cursor = [lastCp[0], lastCp[1]];
+        cursorTheta = circularStringEndTangent(member.coordinates);
+        break;
+      }
+      case 'Clothoid': {
+        if (!cursor) {
+          // Parser rejects leading CLOTHOID; this is a defensive guard
+          // against future-proofing where the AST is constructed by hand.
+          throw new Error('CLOTHOID must follow another COMPOUNDCURVE member');
+        }
+        const params = {
+          startKappa: member.startKappa,
+          endKappa: member.endKappa,
+          length: member.length,
+        };
+        const state = {
+          startX: cursor[0],
+          startY: cursor[1],
+          startTangent: cursorTheta,
+        };
+        memberSamples = densifyClothoid(state, params);
+        cursor = memberSamples[memberSamples.length - 1];
+        cursorTheta = clothoidEndTangent(state, params);
+        break;
+      }
+    }
+
+    // Append samples; skip the leading repeat for non-first members.
+    const start = all.length === 0 ? 0 : 1;
+    for (let i = start; i < memberSamples.length; i++) {
+      all.push(memberSamples[i]);
+    }
+  }
+
+  if (all.length === 0) {
+    throw new Error('Empty COMPOUNDCURVE has no samples to render');
+  }
+  return buildSvg(calculateBoundingBox(all), polylineElement(all));
 }
 
 function renderTin(triangles: readonly (readonly Coord[])[]): string {
@@ -172,6 +258,10 @@ export function renderToSvg(geom: Geometry): string {
       return renderTriangle(geom.coordinates);
     case 'Tin':
       return renderTin(geom.triangles);
+    case 'CircularString':
+      return renderCircularString(geom.coordinates);
+    case 'CompoundCurve':
+      return renderCompoundCurve(geom);
     default: {
       // Exhaustiveness guard. As the Geometry union grows, this becomes
       // a TS error if a new case isn't handled here.

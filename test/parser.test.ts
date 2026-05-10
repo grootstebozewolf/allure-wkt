@@ -114,6 +114,41 @@ describe('parseWkt: TIN happy paths', () => {
   });
 });
 
+describe('parseWkt: CIRCULARSTRING', () => {
+  it('parses a 3-point arc', () => {
+    assert.deepEqual(parseWkt('CIRCULARSTRING (1 0, 0 1, -1 0)'), {
+      type: 'CircularString',
+      coordinates: [[1, 0], [0, 1], [-1, 0]],
+    });
+  });
+
+  it('parses a 5-point chain (2 arcs sharing a junction)', () => {
+    assert.deepEqual(parseWkt('CIRCULARSTRING (1 0, 0 1, -1 0, 0 -1, 1 0)'), {
+      type: 'CircularString',
+      coordinates: [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 0]],
+    });
+  });
+});
+
+describe('parseWkt: COMPOUNDCURVE', () => {
+  it('parses a chain of LINESTRING + CLOTHOID + CIRCULARSTRING', () => {
+    const result = parseWkt(
+      'COMPOUNDCURVE ((0 0, 100 0), CLOTHOID (0, 0.005, 80), CIRCULARSTRING (180 1, 200 5, 215 25))',
+    );
+    assert.equal(result.type, 'CompoundCurve');
+    if (result.type !== 'CompoundCurve') return;
+    assert.equal(result.members.length, 3);
+    assert.equal(result.members[0].type, 'LineString');
+    assert.equal(result.members[1].type, 'Clothoid');
+    assert.equal(result.members[2].type, 'CircularString');
+    if (result.members[1].type === 'Clothoid') {
+      assert.equal(result.members[1].startKappa, 0);
+      assert.equal(result.members[1].endKappa, 0.005);
+      assert.equal(result.members[1].length, 80);
+    }
+  });
+});
+
 describe('parseWkt: error paths', () => {
   it('throws on unsupported geometry types', () => {
     assert.throws(
@@ -162,6 +197,41 @@ describe('parseWkt: error paths', () => {
     assert.throws(
       () => parseWkt('TIN (((0 0, 1 0, 0 1)))'),
       /TRIANGLE body must have exactly 4 coordinates/,
+    );
+  });
+
+  it('throws on an even-count CIRCULARSTRING', () => {
+    assert.throws(
+      () => parseWkt('CIRCULARSTRING (0 0, 1 0, 1 1, 0 0)'),
+      /odd number of points/,
+    );
+  });
+
+  it('rejects standalone CLOTHOID', () => {
+    assert.throws(
+      () => parseWkt('CLOTHOID (0, 0.005, 80)'),
+      /CLOTHOID is only valid inside COMPOUNDCURVE/,
+    );
+  });
+
+  it('rejects CLOTHOID as the first member of a COMPOUNDCURVE', () => {
+    assert.throws(
+      () => parseWkt('COMPOUNDCURVE (CLOTHOID (0, 0.005, 80), (1 1, 2 2))'),
+      /may not be the first member of a COMPOUNDCURVE/,
+    );
+  });
+
+  it('rejects a CLOTHOID with equal start/end curvatures', () => {
+    assert.throws(
+      () => parseWkt('COMPOUNDCURVE ((0 0, 1 0), CLOTHOID (0, 0, 50))'),
+      /startKappa must differ from endKappa/,
+    );
+  });
+
+  it('rejects a CLOTHOID with non-positive length', () => {
+    assert.throws(
+      () => parseWkt('COMPOUNDCURVE ((0 0, 1 0), CLOTHOID (0, 0.005, -5))'),
+      /length must be positive/,
     );
   });
 });

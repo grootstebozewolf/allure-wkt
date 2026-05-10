@@ -50,5 +50,54 @@ export interface Tin {
   triangles: readonly (readonly Coord[])[];
 }
 
-/** Discriminated union of every geometry kind the parser can produce. */
-export type Geometry = Point | LineString | Triangle | Tin;
+/**
+ * A connected sequence of circular arcs. The control-point list has
+ * an odd count {@code >= 3}; consecutive triples (start, mid, end)
+ * define one arc, and adjacent arcs share their end/start point.
+ */
+export interface CircularString {
+  type: 'CircularString';
+  coordinates: readonly Coord[];
+}
+
+/**
+ * Euler / Cornu spiral segment (linear curvature transition). Per the
+ * CLOTHOID WKT proposal it is **only** valid as a non-leading member
+ * of a {@link CompoundCurve}; start point, tangent, and curvature are
+ * inherited from the preceding member's end state. Carries only its
+ * three intrinsic parameters here; the {@code <CompoundCurve>} renderer
+ * resolves the start state at walk time.
+ */
+export interface Clothoid {
+  type: 'Clothoid';
+  startKappa: number;
+  endKappa: number;
+  length: number;
+}
+
+/** Allowed member kinds inside a {@link CompoundCurve}. */
+export type CompoundCurveMember = LineString | CircularString | Clothoid;
+
+/**
+ * An ordered chain of {@link LineString} / {@link CircularString} /
+ * {@link Clothoid} segments where each segment's start coincides with
+ * the previous segment's end (G0). The proposal warns on G1 mismatches
+ * but does not reject them; we render whatever the WKT says.
+ */
+export interface CompoundCurve {
+  type: 'CompoundCurve';
+  members: readonly CompoundCurveMember[];
+}
+
+/**
+ * Discriminated union of every standalone geometry kind. Note
+ * {@link Clothoid} is intentionally absent: it is a CompoundCurve
+ * member only and is rejected at the top level by the parser.
+ */
+export type Geometry =
+  | Point
+  | LineString
+  | Triangle
+  | Tin
+  | CircularString
+  | CompoundCurve;

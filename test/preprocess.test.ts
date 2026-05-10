@@ -140,6 +140,27 @@ describe('Feature: WKT attachments become SVG attachments in Allure results', ()
     });
   });
 
+  describe('Scenario: a COMPOUNDCURVE with a CLOTHOID renders as one continuous SVG <polyline>', () => {
+    let env: PreprocessedDir;
+
+    before(async () => {
+      env = await preprocessOneWkt(
+        'COMPOUNDCURVE ((0 0, 100 0), CLOTHOID (0, 0.005, 48))',
+      );
+    });
+    after(async () => {
+      await rm(env.dir, { recursive: true, force: true });
+    });
+
+    it('Then the SVG contains exactly one <polyline> for the chain', async () => {
+      const ref = await readSvgAttachmentRef(env.resultJsonPath);
+      assert.ok(ref, 'precondition: an svg attachment must exist');
+      const svg = await readFile(join(env.dir, ref.source), 'utf8');
+      const polylines = svg.match(/<polyline\b/g) ?? [];
+      assert.equal(polylines.length, 1);
+    });
+  });
+
   describe('Scenario: a TIN attachment renders one <polygon> per triangle', () => {
     let env: PreprocessedDir;
 

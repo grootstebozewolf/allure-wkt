@@ -47,8 +47,11 @@ In CI (example for GitHub Actions / Jenkins / GitLab):
 - LINESTRING (≥ 2 points)
 - TRIANGLE (3 corners + closing repeat, per OGC)
 - TIN (≥ 1 triangle)
+- CIRCULARSTRING (odd count ≥ 3; chain of circular arcs)
+- COMPOUNDCURVE — chain of LINESTRING / CIRCULARSTRING / **CLOTHOID** members; renders as a single continuous polyline with shared junctions deduped
+- **CLOTHOID** *(extension; only valid as a non-leading COMPOUNDCURVE member, per the [grammars-v4 proposal](https://github.com/antlr/grammars-v4/pull/4848))* — Euler / Cornu spiral; densified via Simpson integrator ported from the JTS reference
 
-POLYGON-with-holes / MULTI* / GEOMETRYCOLLECTION ship additively as the parser/renderer grow. See `CLOTHOID_PROPOSAL.md` for the planned curve support roadmap (CIRCULARSTRING, COMPOUNDCURVE, CLOTHOID).
+POLYGON-with-holes / MULTI* / GEOMETRYCOLLECTION ship additively as the parser/renderer grow. See `CLOTHOID_PROPOSAL.md` for design notes on the curve types.
 
 ## How it works (architecture)
 

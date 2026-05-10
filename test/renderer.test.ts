@@ -174,6 +174,77 @@ describe('renderToSvg: TIN', () => {
   });
 });
 
+describe('renderToSvg: CIRCULARSTRING', () => {
+  it('emits a single <polyline> approximating the arc', () => {
+    const svg = renderToSvg({
+      type: 'CircularString',
+      coordinates: [[1, 0], [0, 1], [-1, 0]],
+    });
+    const polylines = svg.match(/<polyline\b/g) ?? [];
+    assert.equal(polylines.length, 1);
+  });
+
+  it('viewBox brackets the full arc extent', () => {
+    const svg = renderToSvg({
+      type: 'CircularString',
+      coordinates: [[1, 0], [0, 1], [-1, 0]],
+    });
+    const [vx, vy, w, h] = viewBoxOf(svg);
+    assert.ok(vx <= -1 && vx + w >= 1, 'x extent must cover [-1, 1]');
+    assert.ok(vy <= 0 && vy + h >= 1, 'y extent must cover [0, 1]');
+  });
+});
+
+describe('renderToSvg: COMPOUNDCURVE with CLOTHOID', () => {
+  it('emits exactly one <polyline> spanning all members', () => {
+    const svg = renderToSvg({
+      type: 'CompoundCurve',
+      members: [
+        { type: 'LineString', coordinates: [[0, 0], [100, 0]] },
+        { type: 'Clothoid', startKappa: 0, endKappa: 0.005, length: 48 },
+      ],
+    });
+    const polylines = svg.match(/<polyline\b/g) ?? [];
+    assert.equal(polylines.length, 1);
+  });
+
+  it('clothoid section ends near the JTS analytical reference (47.93 + 100, 1.92)', () => {
+    const svg = renderToSvg({
+      type: 'CompoundCurve',
+      members: [
+        { type: 'LineString', coordinates: [[0, 0], [100, 0]] },
+        { type: 'Clothoid', startKappa: 0, endKappa: 0.005, length: 48 },
+      ],
+    });
+    const m = svg.match(/<polyline[^>]*\bpoints="([^"]+)"/);
+    assert.ok(m, 'expected a polyline');
+    const points = m[1].split(' ').map((p) => p.split(',').map(Number));
+    const last = points[points.length - 1];
+    // Reference: clothoid end at (47.93, 1.92) RELATIVE to clothoid start (100, 0)
+    // → absolute (147.93, 1.92).
+    assert.ok(Math.abs(last[0] - 147.93) < 0.01, `x = ${last[0]}`);
+    assert.ok(Math.abs(last[1] - 1.92) < 0.01, `y = ${last[1]}`);
+  });
+
+  it('rail-bend chain (line + clothoid + arc + clothoid + line) is one polyline', () => {
+    const svg = renderToSvg({
+      type: 'CompoundCurve',
+      members: [
+        { type: 'LineString', coordinates: [[0, 0], [100, 0]] },
+        { type: 'Clothoid', startKappa: 0, endKappa: 0.005, length: 48 },
+        {
+          type: 'CircularString',
+          coordinates: [[147.93, 1.92], [200, 50], [150, 100]],
+        },
+        { type: 'Clothoid', startKappa: 0.005, endKappa: 0, length: 48 },
+        { type: 'LineString', coordinates: [[150, 100], [50, 200]] },
+      ],
+    });
+    const polylines = svg.match(/<polyline\b/g) ?? [];
+    assert.equal(polylines.length, 1);
+  });
+});
+
 describe('calculateBoundingBox', () => {
   it('returns degenerate bbox for a single point', () => {
     const bbox = calculateBoundingBox([[10, 20]]);

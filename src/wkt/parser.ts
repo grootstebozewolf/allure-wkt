@@ -10,6 +10,10 @@
  * via new cases in {@link parseWkt} and new helpers below.
  */
 import type {
+  CircularString,
+  Clothoid,
+  CompoundCurve,
+  CompoundCurveMember,
   Coord,
   Geometry,
   LineString,
@@ -185,6 +189,89 @@ function parseTin(stream: TokenStream): Tin {
   return { type: 'Tin', triangles };
 }
 
+function parseCircularString(stream: TokenStream): CircularString {
+  const coords = parseCoordList(stream);
+  if (coords.length < 3 || coords.length % 2 === 0) {
+    throw new SyntaxError(
+      `CIRCULARSTRING must have an odd number of points, at least 3, got ${coords.length}`,
+    );
+  }
+  return { type: 'CircularString', coordinates: coords };
+}
+
+/** Body of {@code CLOTHOID(k0, k1, L)} -- caller has already consumed
+ *  the {@code CLOTHOID} keyword. */
+function parseClothoidBody(stream: TokenStream): Clothoid {
+  stream.expect('(');
+  const startKappa = stream.nextNumber();
+  stream.expect(',');
+  const endKappa = stream.nextNumber();
+  stream.expect(',');
+  const length = stream.nextNumber();
+  stream.expect(')');
+  if (!(length > 0) || !Number.isFinite(length)) {
+    throw new SyntaxError(
+      `CLOTHOID length must be positive and finite, got ${length}`,
+    );
+  }
+  if (!Number.isFinite(startKappa) || !Number.isFinite(endKappa)) {
+    throw new SyntaxError('CLOTHOID curvatures must be finite');
+  }
+  if (startKappa === endKappa) {
+    throw new SyntaxError(
+      'CLOTHOID startKappa must differ from endKappa (degenerate; use CIRCULARSTRING or LINESTRING)',
+    );
+  }
+  return { type: 'Clothoid', startKappa, endKappa, length };
+}
+
+/** Parse one COMPOUNDCURVE member. {@code isFirst} drives the
+ *  non-leading-CLOTHOID rule (proposal §3.2). */
+function parseCompoundCurveMember(
+  stream: TokenStream, isFirst: boolean,
+): CompoundCurveMember {
+  if (stream.peek() === '(') {
+    // Implicit LineString, e.g. `(0 0, 100 0)`.
+    const coords = parseCoordList(stream);
+    if (coords.length < 2) {
+      throw new SyntaxError(
+        'Implicit LINESTRING in COMPOUNDCURVE must have >= 2 points',
+      );
+    }
+    return { type: 'LineString', coordinates: coords };
+  }
+  const keyword = stream.next().toUpperCase();
+  switch (keyword) {
+    case 'CIRCULARSTRING':
+      return parseCircularString(stream);
+    case 'CLOTHOID': {
+      if (isFirst) {
+        throw new SyntaxError(
+          'CLOTHOID may not be the first member of a COMPOUNDCURVE (proposal §3.2)',
+        );
+      }
+      return parseClothoidBody(stream);
+    }
+    default:
+      throw new SyntaxError(
+        `Unexpected COMPOUNDCURVE member keyword: '${keyword}'`,
+      );
+  }
+}
+
+function parseCompoundCurve(stream: TokenStream): CompoundCurve {
+  stream.expect('(');
+  const members: CompoundCurveMember[] = [
+    parseCompoundCurveMember(stream, true),
+  ];
+  while (stream.peek() === ',') {
+    stream.next();
+    members.push(parseCompoundCurveMember(stream, false));
+  }
+  stream.expect(')');
+  return { type: 'CompoundCurve', members };
+}
+
 /**
  * Parse a WKT string into a {@link Geometry} AST.
  *
@@ -209,6 +296,16 @@ export function parseWkt(input: string): Geometry {
     case 'TIN':
       geometry = parseTin(stream);
       break;
+    case 'CIRCULARSTRING':
+      geometry = parseCircularString(stream);
+      break;
+    case 'COMPOUNDCURVE':
+      geometry = parseCompoundCurve(stream);
+      break;
+    case 'CLOTHOID':
+      throw new SyntaxError(
+        'CLOTHOID is only valid inside COMPOUNDCURVE; it has no absolute start state of its own',
+      );
     default:
       throw new SyntaxError(`Unsupported WKT geometry: '${typeName}'`);
   }
